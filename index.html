@@ -2,30 +2,254 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Label PDF Sorter</title>
-    <script src="libs/pdf.min.js" defer></script>
-    <script src="app.js" defer></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light">
+  <title>Label PDF Sorter</title>
+  <style>
+    :root {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      color: #182534;
+      background: #f7f9fc;
+      font-synthesis: none;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: .55; }
+    .container { max-width: 1120px; padding: 0 24px 64px; margin: auto; }
+
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: center;
+      gap: 16px; padding: 27px 0 22px; border-bottom: 1px solid #e6ebf1; }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .mark { width: 43px; height: 43px; display: grid; place-items: center;
+      background: #1e4578; border-radius: 12px; color: #fff;
+      font-weight: 800; font-size: 20px; letter-spacing: -2px; }
+    .brand h1 { font-size: 19px; letter-spacing: -.5px; margin: 0; }
+    .subtitle { color: #718198; font-size: 12px; margin-top: 4px; }
+    .privacy { color: #367357; background: #eaf6ee; border: 1px solid #d8eade;
+      font-size: 12px; border-radius: 30px; padding: 8px 12px; white-space: nowrap; }
+    .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+      background: #45a977; margin-right: 6px; }
+
+    .intro { margin: 34px 0 26px; }
+    .intro h2 { margin: 0 0 9px; font-size: 28px; letter-spacing: -.8px; }
+    .intro p { margin: 0; color: #66778d; font-size: 14px; line-height: 1.6; }
+    .panel { background: white; border: 1px solid #e3e9f1; border-radius: 16px;
+      padding: 25px; margin-top: 17px; box-shadow: 0 6px 30px rgba(28, 55, 87, .035); }
+    .eyebrow { text-transform: uppercase; font-size: 11px; letter-spacing: 1.3px;
+      font-weight: 800; color: #8291a2; margin: 0 0 18px; }
+    .section-head { display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .section-head h3 { margin: 0; font-size: 18px; letter-spacing: -.4px; }
+    .small { font-size: 12px; color: #738298; }
+    .pill { padding: 6px 10px; border-radius: 50px; background: #f3f6fa;
+      border: 1px solid #e5ebf2; color: #687991; font-size: 12px; }
+
+    /* Files */
+    .uploads { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .drop { min-height: 146px; display: flex; align-items: center;
+      justify-content: center; flex-direction: column; gap: 9px; padding: 22px;
+      background: #fbfcfe; border: 1.5px dashed #becddd; border-radius: 12px;
+      cursor: pointer; transition: background .15s, border-color .15s; text-align: center; }
+    .drop:hover, .drop.dragging { background: #eef5ff; border-color: #5a87bd; }
+    .drop.selected { background: #f2faf5; border-color: #75ba94; }
+    .drop input { display: none; }
+    .upload-icon { width: 35px; height: 35px; border-radius: 10px;
+      background: #edf3fa; display: grid; place-items: center;
+      color: #315d8a; font-size: 21px; }
+    .drop strong { font-size: 14px; }
+    .drop small { font-size: 12px; color: #8190a2; max-width: 100%; overflow-wrap: anywhere; }
+    .metrics { display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-top: 18px; }
+    .metric { padding: 15px 17px; background: #fafcff;
+      border: 1px solid #edf0f5; border-radius: 11px; }
+    .metric b { display: block; font-size: 23px; letter-spacing: -.7px; }
+    .metric span { color: #7a8a9f; display: block; margin-top: 4px; font-size: 11px; }
+    .actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+    .btn { border: 1px solid #d2dce8; background: white;
+      color: #345272; border-radius: 9px; padding: 11px 16px; font-size: 13px; font-weight: 650; }
+    .btn.primary { background: #245b99; border-color: #245b99; color: white; }
+    .btn:hover:not(:disabled) { filter: brightness(.97); }
+    .progress { color: #6a8096; font-size: 12px; }
+    .notice { color: #58728b; background: #f0f5fb; border-radius: 9px;
+      padding: 12px 14px; margin-top: 16px; font-size: 13px; line-height: 1.5; }
+    .notice.success { background: #eaf7ee; color: #326b4a; }
+    .notice.error { background: #fff0f0; color: #a64141; }
+    .fine-print { font-size: 12px; color: #8491a2; line-height: 1.65; margin: 13px 0 0; }
+
+    /* Results */
+    .results { display: none; }
+    .results.visible { display: block; }
+    .summary-area { display: grid; grid-template-columns: 1.4fr 1fr; gap: 15px; }
+    .table-wrap { overflow: auto; max-height: 520px; border: 1px solid #e8edf3; border-radius: 10px; }
+    table { border-collapse: collapse; width: 100%; text-align: left; font-size: 12px; }
+    th { position: sticky; top: 0; z-index: 1; background: #f5f8fc;
+      color: #5b718a; padding: 12px; white-space: nowrap; font-weight: 700; }
+    td { padding: 11px 12px; border-top: 1px solid #edf1f6; white-space: nowrap; }
+    tr:hover td { background: #fafcff; }
+    .count { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .ok { color: #23805a; font-weight: 700; }
+    .review { color: #bd711e; font-weight: 700; }
+    .manual { color: #306bb4; font-weight: 700; }
+    .tip { background: #f8fafc; border: 1px solid #edf1f5;
+      border-radius: 11px; padding: 18px; color: #728298;
+      font-size: 12px; line-height: 1.85; }
+    .tip strong { color: #2f425a; font-size: 13px; }
+    .filterbar { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; margin: 0 0 15px; }
+    .field { display: flex; flex-direction: column; gap: 6px;
+      font-size: 11px; color: #75859b; font-weight: 700; }
+    .field input, .field select, .sku-select { background: white;
+      border: 1px solid #d8e1ea; color: #2a425e; border-radius: 8px;
+      font-size: 12px; padding: 9px 10px; }
+    .field input { width: 245px; }
+    .field select { min-width: 144px; }
+    .sku-select { min-width: 125px; max-width: 175px; padding: 7px; }
+    .confirm { display: flex; align-items: center; gap: 9px; color: #4e657f; font-size: 13px; }
+    .confirm input { accent-color: #245b99; width: 15px; height: 15px; }
+    .footer { color: #8b98aa; font-size: 11px; text-align: center; margin-top: 26px; }
+    @media (max-width: 720px) {
+      .container { padding: 0 13px 40px; }
+      .header { padding-top: 18px; }
+      .privacy { display: none; }
+      .intro { margin-top: 24px; }
+      .intro h2 { font-size: 23px; }
+      .panel { padding: 18px; }
+      .uploads, .summary-area { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .field, .field input, .field select { width: 100%; }
+      .filterbar .btn { width: 100%; }
+    }
+  </style>
 </head>
 <body>
-    <h1>Label PDF Sorter</h1>
-    <p>Sort shipping labels by SKU.</p>
+  <main class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="mark">L</div>
+        <div>
+          <h1>Label PDF Sorter</h1>
+          <div class="subtitle">Warehouse tools · v1.0</div>
+        </div>
+      </div>
+      <span class="privacy"><span class="dot"></span>Runs locally · Offline</span>
+    </header>
 
-    <h2>Step 1: Upload PDF Files</h2>
+    <div class="intro">
+      <h2>Sort shipping labels by SKU.</h2>
+      <p>Upload FedEx labels and Extensiv pick tickets. Match orders, check exceptions, and download organized PDFs.</p>
+    </div>
 
-    <label>Shipping Labels:</label>
-    <input type="file" id="labels" accept=".pdf">
+    <section class="panel">
+      <p class="eyebrow">01 — Upload &amp; analyze</p>
+      <div class="uploads">
+        <label class="drop" id="drop-labels" for="labels">
+          <span class="upload-icon">⇧</span>
+          <strong>Shipping Labels</strong>
+          <small id="name-labels">Click or drag a PDF here</small>
+          <input id="labels" type="file" accept="application/pdf,.pdf">
+        </label>
+        <label class="drop" id="drop-tickets" for="tickets">
+          <span class="upload-icon">≡</span>
+          <strong>Pick Tickets</strong>
+          <small id="name-tickets">Click or drag a PDF here</small>
+          <input id="tickets" type="file" accept="application/pdf,.pdf">
+        </label>
+      </div>
+      <div class="metrics">
+        <div class="metric"><b id="files-count">0 / 2</b><span>Files selected</span></div>
+        <div class="metric"><b id="labels-count">—</b><span>Label pages</span></div>
+        <div class="metric"><b id="tickets-count">—</b><span>Ticket pages</span></div>
+        <div class="metric"><b id="review-count">—</b><span>Needs review</span></div>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="analyze" disabled>Analyze PDFs</button>
+        <button class="btn" id="clear" type="button">Clear</button>
+        <span class="progress" id="progress" role="status"></span>
+      </div>
+      <div class="notice" id="status" role="status">Select both PDF files to get started.</div>
+      <p class="fine-print">Files stay in your browser. Nothing is uploaded to a server. Built for the current FedEx label and Extensiv Pick Ticket layouts.</p>
+    </section>
 
-    <br><br>
+    <section class="panel results" id="results">
+      <p class="eyebrow">02 — Overview</p>
+      <div class="section-head">
+        <h3>SKU summary</h3>
+        <span class="pill" id="overview">—</span>
+      </div>
+      <div class="summary-area">
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>SKU</th><th>Labels</th><th>Assignment</th></tr></thead>
+            <tbody id="sku-summary"></tbody>
+          </table>
+        </div>
+        <div class="tip">
+          <strong>Matching status</strong><br>
+          <span class="ok">AUTO</span> — Reference, package weight and quantity match.<br>
+          <span class="manual">MANUAL</span> — You changed the SKU. Verify the item.<br>
+          <span class="review">REVIEW</span> — Missing or ambiguous information.<br><br>
+          <span id="validation-line"></span>
+        </div>
+      </div>
+    </section>
 
-    <label>Pick Tickets:</label>
-    <input type="file" id="tickets" accept=".pdf">
+    <section class="panel results" id="details">
+      <p class="eyebrow">03 — Verify assignments</p>
+      <div class="section-head">
+        <h3>Label details</h3>
+        <span class="small" id="shown-count">—</span>
+      </div>
+      <div class="filterbar">
+        <label class="field">Search Reference / SKU / Tracking
+          <input id="search" type="search" placeholder="Search labels...">
+        </label>
+        <label class="field">Status
+          <select id="status-filter">
+            <option value="ALL">All statuses</option>
+            <option value="AUTO">AUTO</option>
+            <option value="MANUAL">MANUAL</option>
+            <option value="REVIEW">REVIEW</option>
+          </select>
+        </label>
+        <label class="field">SKU
+          <select id="sku-filter"><option value="ALL">All SKUs</option></select>
+        </label>
+        <button class="btn" id="reset-filters" type="button">Reset filters</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Page</th><th>Reference</th><th>Weight (lb)</th><th>Tracking</th><th>SKU (editable)</th><th>Status</th><th>Ticket page</th><th>Notes</th></tr>
+          </thead>
+          <tbody id="result-rows"></tbody>
+        </table>
+      </div>
+      <p class="fine-print">Filters only change what you see, not which labels are exported. Any manual SKU change requires a new confirmation.</p>
+    </section>
 
-    <br><br>
+    <section class="panel results" id="export-panel">
+      <p class="eyebrow">04 — Export</p>
+      <div class="section-head">
+        <h3>Download sorted labels</h3>
+        <span class="pill">Original label size preserved</span>
+      </div>
+      <p class="small">Creates one PDF per SKU, a separate REVIEW PDF if needed, plus a matching CSV and a SKU summary.</p>
+      <div class="actions">
+        <label class="confirm"><input id="confirmed" type="checkbox"> I reviewed the assignments and exceptions</label>
+        <button class="btn primary" id="export" disabled>Download ZIP</button>
+      </div>
+      <p class="fine-print">Always verify unusual weights, multi-SKU orders, and REVIEW labels before printing or shipping.</p>
+    </section>
+    <div class="footer">Label PDF Sorter · Local browser utility</div>
+  </main>
 
-    <button id="analyze">Analyze PDFs</button>
-    <h2>Results</h2>
-    <pre id="result" style="white-space: pre-wrap; overflow-wrap: anywhere;"></pre>
+  <!-- All libraries are local files: works offline after GitHub download. -->
+  <script src="libs/pdf.min.js"></script>
+  <script src="libs/pdf-lib.min.js"></script>
+  <script src="libs/jszip.min.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
