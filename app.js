@@ -1,46 +1,53 @@
 
 "use strict";
 
-// 1. Find the HTML elements by their IDs
+// Connect PDF.js to its worker file
+pdfjsLib.GlobalWorkerOptions.workerSrc = "libs/pdf.worker.min.js";
+
+// Find the HTML elements
 const labelInput = document.getElementById("labels");
 const ticketInput = document.getElementById("tickets");
 const analyzeButton = document.getElementById("analyze");
+const result = document.getElementById("result");
 
-// 2. Listen for the Analyze PDFs button click
+// Run when the button is clicked
 analyzeButton.addEventListener("click", async () => {
 
-    // 3. Get the selected files
     const labelFile = labelInput.files[0];
     const ticketFile = ticketInput.files[0];
 
-    // 4. Make sure both files are selected
     if (!labelFile || !ticketFile) {
-        alert("Please select both PDF files.");
+        result.textContent = "Please select both PDF files.";
         return;
     }
 
-    // 5. Verify the PDF file headers
     try {
-        const files = [labelFile, ticketFile];
+        result.textContent = "Reading PDF...";
 
-        for (const file of files) {
-            const header = await file.slice(0, 5).text();
+        // Read the Shipping Label PDF
+        const buffer = await labelFile.arrayBuffer();
+        const data = new Uint8Array(buffer);
 
-            if (header !== "%PDF-") {
-                throw new Error(
-                    `${file.name} does not have a valid PDF header.`
-                );
-            }
-        }
+        // Open the PDF using PDF.js
+        const pdf = await pdfjsLib.getDocument({ data }).promise;
 
-        // 6. Show the result
-        alert(
-            "PDF files verified successfully!\n\n" +
-            "Shipping Labels: " + labelFile.name + "\n" +
-            "Pick Tickets: " + ticketFile.name
-        );
+        // Get the first page
+        const page = await pdf.getPage(1);
+
+        // Extract text from the first page
+        const content = await page.getTextContent();
+
+        const text = content.items
+            .map(item => item.str)
+            .join(" ");
+
+        // Display the result
+        result.textContent =
+            "Total label pages: " + pdf.numPages + "\n\n" +
+            "FIRST PAGE TEXT:\n\n" + text;
 
     } catch (error) {
-        alert("Error: " + error.message);
+        result.textContent = "Error: " + error.message;
+        console.error(error);
     }
 });
